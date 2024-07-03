@@ -15,7 +15,7 @@ import ij.gui.GenericDialog;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Roi;
-
+import ij.io.FileSaver;
 import ij.measure.CurveFitter;
 import ij.plugin.filter.PlugInFilter;
 
@@ -96,48 +96,36 @@ public class MagneticBead implements PlugInFilter {
 			//addPointToOverlay(xyCordSubPixel, 0);
 			
 			float[] radialProfile = createRadialProfile(xyCordSubPixel, ip);
-						
 			zlut[i] = radialProfile;
+			
+			// Get the height of the image from the image title
 			zlutHeights[i] = extractStartingNumber(images.get(i).getTitle());
 			//ADD A SAVING ZLUT FEATURE
 			
 			//System.out.println(Arrays.toString(zlutHeights));
 		}
+		//Prompt user to save zlut
+		promptUserToSaveZLut(directory_path); 
+			
+		
 	}
 
 
-	private int extractStartingNumber(String title) {
-			//returns starting number
-		 	Pattern pattern = Pattern.compile("^\\d+");
-	        Matcher matcher = pattern.matcher(title);
-	        if (matcher.find()) {
-	            String numbers = matcher.group(); 
-	            return Integer.parseInt(numbers);
-	        } else {
-	        	throw new RuntimeException("Title does not contain starting numbers");
-	        }
-	 
-	}
 
-	private LinkedList<ImagePlus> getReferenceImages(String directory_path) {
+
+	
+	private void promptUserToSaveZLut(String directory_path) {
 		
-		File[] directory = new File(directory_path).listFiles();
+		GenericDialog g = new GenericDialog("Save ZLUT?");
+		g.addMessage("Select a folder to save the ZLUT to");
+		g.addDirectoryField("Directory", directory_path);
+		g.showDialog();
+		directory_path = g.getNextString();
 		
-		// of the form: numbers letters . filepath
-		String regex = "^\\d+[A-Za-z]+\\.[A-Za-z0-9]+$";
-        Pattern pattern = Pattern.compile(regex);
-        
-        LinkedList<ImagePlus> images = new LinkedList<>();
-        for (File file: directory) {
-            Matcher matcher = pattern.matcher(file.getName());
-            if (matcher.matches()) {
-                System.out.println(file.getName() + " matches the pattern.");
-                images.add(new ImagePlus(file.getAbsolutePath()));
-            } else {
-                System.out.println(file.getName() + " does not match the pattern.");
-            }
-        }
-        return images;
+		FileSaver f = new FileSaver(new ImagePlus("ZLUT", new FloatProcessor(zlut)));
+		f.saveAsTiff(directory_path + "ZLUT.tif");
+		
+		return;
 	}
 
 	public int[] getCenterOfMass(ImageProcessor ip) {
@@ -210,16 +198,16 @@ public class MagneticBead implements PlugInFilter {
 		//5 point curve fit
 		//Make sure it stays in bounds
 		int leftBound = (minimumDifferenceIndex-2 < 0) ? 0 : minimumDifferenceIndex-3;
-		int RightBound = (minimumDifferenceIndex+2 > zlut[0].length) ? zlut[0].length : minimumDifferenceIndex+3;
+		int RightBound = (minimumDifferenceIndex+2 > zlut[0].length-1) ? zlut[0].length-1 : minimumDifferenceIndex+3;
 		
 		System.out.println(leftBound + " " + RightBound);
 		System.out.println(minimumDifferenceIndex);
 				
-		double[] data = new double[RightBound-leftBound];
+		double[] data    = new double[RightBound-leftBound];
 		double[] indexes = new double[RightBound-leftBound];
 		
 		
-		for(int i = 0; i < RightBound-leftBound-1; i++) {
+		for(int i = 0; i < RightBound-leftBound; i++) {
 			indexes[i] = zlutHeights[i];
 			data[i] = zlut[i][0];
 		}
@@ -229,12 +217,12 @@ public class MagneticBead implements PlugInFilter {
 		
 		
 		CurveFitter leastdiferenceFit = new CurveFitter(indexes, data);
-		leastdiferenceFit.doCustomFit("a + b*x + c*x*x", new double[] {0,0,0}, false);
-		
+		leastdiferenceFit.doCustomFit("y = a + b*x + c*c*x*x", new double[] {0,0,0}, false);
+		System.out.println(leastdiferenceFit.getNumParams("y = a + b*x + c*c*x*x"));
 		System.out.println(leastdiferenceFit.getStatusString());
 		System.out.println(Arrays.toString(leastdiferenceFit.getParams()));
 		
-		return 0;//-leastdiferenceFit.getParams()[1]/(2*leastdiferenceFit.getParams()[2]);
+		return -leastdiferenceFit.getParams()[1]/(2*leastdiferenceFit.getParams()[2]*leastdiferenceFit.getParams()[2]);
 	}
 
 	private float[] createRadialProfile(double[] xyCord, ImageProcessor ip) {
@@ -286,6 +274,7 @@ public class MagneticBead implements PlugInFilter {
 	
 	// Perfectly fine that the return value doesn't have float precision
 	private int[] subtractMean(int[] data) {
+		
 		int sum=0;
 		
 		for(int num: data) {
@@ -528,6 +517,48 @@ public class MagneticBead implements PlugInFilter {
 		return g.getNextString();
 		
 	}
+	private LinkedList<ImagePlus> getReferenceImages(String directory_path) {
+		
+		File[] directory = new File(directory_path).listFiles();
+		
+		// of the form: numbers letters . extension
+		String regex = "^\\d+[A-Za-z]+\\.[A-Za-z0-9]+$";
+        Pattern pattern = Pattern.compile(regex);
+        
+        LinkedList<ImagePlus> images = new LinkedList<>();
+        for (File file: directory) {
+        	
+            Matcher matcher = pattern.matcher(file.getName());
+            
+            if (matcher.matches()) {
+            	
+                System.out.println(file.getName() + " matches the pattern.");
+                images.add(new ImagePlus(file.getAbsolutePath()));
+                
+            } else {
+                System.out.println(file.getName() + " does not match the pattern.");
+            }
+        }
+        return images;
+	}
+	
+	
+	// Title of image should be numbers units . extension
+	// Returns starting numbers
+	private int extractStartingNumber(String title) {
+		
+		//regex for starting numbers
+	 	Pattern pattern = Pattern.compile("^\\d+");
+        Matcher matcher = pattern.matcher(title);
+        
+        if (matcher.find()) {
+            String numbers = matcher.group(); 
+            return Integer.parseInt(numbers);
+        } else {
+        	throw new RuntimeException("Title does not contain starting numbers");
+        }
+ 
+	}	
 
 
 	
