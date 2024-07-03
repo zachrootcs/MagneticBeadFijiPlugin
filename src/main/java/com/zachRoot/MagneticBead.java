@@ -283,18 +283,20 @@ public class MagneticBead implements PlugInFilter {
 		return radialProfile;
 	}
 	
+	
 	// Perfectly fine that the return value doesn't have float precision
 	private int[] subtractMean(int[] data) {
 		int sum=0;
-		for(int i = 0; i<data.length; i++) {
-			sum += data[i];
+		
+		for(int num: data) {
+			sum += num;
 		}
 		
 		double mean = sum/data.length;
-		
 		for(int i = 0; i<data.length; i++) {
 			data[i]-= mean;
 		}
+		
 		return data;
 	}
 	
