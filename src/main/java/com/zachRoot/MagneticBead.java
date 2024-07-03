@@ -2,7 +2,6 @@ package com.zachRoot;
 
 import java.awt.Color;
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.regex.Matcher;
@@ -27,12 +26,13 @@ import ij.process.ImageProcessor;
 
 public class MagneticBead implements PlugInFilter {
 	private ImagePlus image;
+	
 	private float[][] zlut;
-	int[] zlutHeights; 
+	private int[]     zlutHeights; 
 	
 	private int width;
 	private int height;
-	int radius;
+	private int radius;
 	
 	private String length_unit;
 	
@@ -41,12 +41,13 @@ public class MagneticBead implements PlugInFilter {
 	
 
 	@Override
-	public int setup(String arg, ImagePlus imp) {
+	public int setup(String arg, ImagePlus image) {
 		if (arg.equals("about")) {
 			showAbout();
 			return DONE;
 		}
-		image = imp;
+		
+		this.image = image;
 		return DOES_8G | DOES_16 | DOES_32;
 	}
 
@@ -55,31 +56,33 @@ public class MagneticBead implements PlugInFilter {
 		
 		width = ip.getWidth();
 		height = ip.getHeight();
+		
 		radius = width/3 - width%2;
+		
 		// Square Image is necessary
-		assert(height == width);
-		
-		createRadialProfileTable();
-		
-		
-		ImageStack stack = image.getStack();
-		if(stack.size() == 0) {
-			processIP(ip,0);
-		}else {
-			processStack(stack);
+		if(width != height) {
+			IJ.showMessage("Image must be square instead of " + width + "x" + height);
+			return;
 		}
+		
+		// Creates ZLut
+		createZLut();
+		processStack(image.getStack());
+		
 	}
 
-	private void createRadialProfileTable() {
+	private void createZLut() {
 		
-		GenericDialog g = getDirectoryMessage();		
-		g.showDialog();
+		// Directory for ZLUT Reference Images
+		String directory_path = getDirectoryFromUser();		
 		
-		String directory_path = g.getNextString();
+		// ZLut Component Images
 		LinkedList<ImagePlus> images = getReferenceImages(directory_path);
 		
-		zlut = new float[images.size()][radius+1];
-		zlutHeights = new int[images.size()];
+		// Matrix with each index being the radial profile of image about center of bead
+		zlut        = new float[images.size()][radius+1];
+		zlutHeights = new int  [images.size()];
+		
 		for(int i = 0; i<images.size(); i++) {
 			ImageProcessor ip = images.get(i).getProcessor();
 			
@@ -90,13 +93,14 @@ public class MagneticBead implements PlugInFilter {
 			double[] xyCordSubPixel = xyRowColConvolve(ip, xyCord[0], xyCord[1]);
 			
 			//Optional May Remove
-			addPointToOverlay(xyCordSubPixel, 0);
+			//addPointToOverlay(xyCordSubPixel, 0);
 			
 			float[] radialProfile = createRadialProfile(xyCordSubPixel, ip);
 						
 			zlut[i] = radialProfile;
 			zlutHeights[i] = extractStartingNumber(images.get(i).getTitle());
 			//ADD A SAVING ZLUT FEATURE
+			
 			//System.out.println(Arrays.toString(zlutHeights));
 		}
 	}
@@ -173,7 +177,7 @@ public class MagneticBead implements PlugInFilter {
 	
 	
 	private double compareWithZLut(float[] radialProfile) {
-		new ImagePlus("",new FloatProcessor(zlut)).show();
+		//new ImagePlus("",new FloatProcessor(zlut)).show();
 		
 		//add something for normalization
 		//add something to make sure zlut is saved beforehand
@@ -182,7 +186,7 @@ public class MagneticBead implements PlugInFilter {
 			for(int j = 0; j<zlut[0].length; j++) {
 				zlut[i][j] = Math.abs(radialProfile[j]-zlut[i][j]);
 			}
-			new ImagePlus("",new FloatProcessor(zlut)).show();
+			//new ImagePlus("",new FloatProcessor(zlut)).show();
 			//sum that difference and add that to the first column
 			float sum = 0f;
 			for(int j = 0; j<zlut[0].length; j++) {
@@ -215,18 +219,21 @@ public class MagneticBead implements PlugInFilter {
 		double[] indexes = new double[RightBound-leftBound];
 		
 		
-		for(int i = 0; i < RightBound-leftBound; i++) {
+		for(int i = 0; i < RightBound-leftBound-1; i++) {
 			indexes[i] = zlutHeights[i];
 			data[i] = zlut[i][0];
 		}
+		
 		System.out.println("Indexes " + Arrays.toString(indexes));
 		System.out.println("Data " + Arrays.toString(data));
 		
 		
 		CurveFitter leastdiferenceFit = new CurveFitter(indexes, data);
 		leastdiferenceFit.doCustomFit("a + b*x + c*x*x", new double[] {0,0,0}, false);
+		
 		System.out.println(leastdiferenceFit.getStatusString());
 		System.out.println(Arrays.toString(leastdiferenceFit.getParams()));
+		
 		return 0;//-leastdiferenceFit.getParams()[1]/(2*leastdiferenceFit.getParams()[2]);
 	}
 
@@ -393,10 +400,11 @@ public class MagneticBead implements PlugInFilter {
 	
 
 	public void processStack(ImageStack stack) {
-		//Start at one 
+		//Start at one and process each frame in stack
 		for(int i = 1; i<=stack.size(); i++ ) {
-			ImageProcessor ip = stack.getProcessor(i);
-			processIP(ip,i);
+			processIP(stack.getProcessor(i), i);
+			
+			
 			// REMOVE RETURN ONLY FOR TESTING ONE FRAME
 			return;
 		}
@@ -480,6 +488,8 @@ public class MagneticBead implements PlugInFilter {
     	return sum;
     }
 	
+    
+    
 	public void addPointToOverlay(double[] xyCord, int sliceNumber) {
 		// Create new overlay if one doesn't exist
 		if(image.getOverlay() == null) image.setOverlay(new Overlay());
@@ -496,18 +506,31 @@ public class MagneticBead implements PlugInFilter {
 		
 	}
 
-	private GenericDialog getDirectoryMessage() {
-		GenericDialog g = new GenericDialog("Select Directory for Magnetic Bead Z Space Localization");
-		g.addMessage("Each image in the directory must be titled with the number corresponding with the Z position and unit (i.e. 200nm.tif) "
+	
+	// function to return 
+	private String getDirectoryFromUser() {
+		
+		GenericDialog g = new GenericDialog(
+				"Select Directory for Magnetic Bead Z Space Localization"
+		);
+		
+		g.addMessage(
+				"Each image in the directory must be titled with the number "
+				+ "corresponding with the Z position and unit (i.e. 200nm.tif) "
 				+ "\nor the ZLut must already be saved there");
+		
 		g.addDirectoryField("Directory", "C:\\Users\\");
-		return g;
+		g.showDialog();
+		
+		
+		return g.getNextString();
+		
 	}
 
+
+	
 	public void showAbout() {
-		IJ.showMessage("Magnetic Bead Analysis",
-			"Java Port of Matlab Project"
-		);
+		IJ.showMessage("Magnetic Bead Analysis", "Java Port of Matlab Project");
 	}
 	
 	/**
