@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Scanner;
 import java.util.regex.Matcher;
@@ -127,6 +126,7 @@ public class MagneticBead implements PlugInFilter {
 			processIP(stack.getProcessor(i), i);
 		}
 	}
+	
 	
 	// directory_path is the default go to
 	private void promptUserToSaveZLut(String directory_path) {
