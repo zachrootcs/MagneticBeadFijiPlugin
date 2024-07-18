@@ -125,10 +125,6 @@ public class MagneticBead implements PlugInFilter {
 		//Start at one and process each frame in stack
 		for(int i = 1; i<=stack.size(); i++ ) {
 			processIP(stack.getProcessor(i), i);
-			
-			
-			// REMOVE RETURN ONLY FOR TESTING ONE FRAME
-			return;
 		}
 	}
 	
@@ -253,30 +249,18 @@ public class MagneticBead implements PlugInFilter {
 		int leftBound = (minDiffIndex-2 < 0) ? 0 : minDiffIndex-2;
 		int RightBound = (minDiffIndex+2 > zlutC.length-1) ? zlutC.length-1 : minDiffIndex+2;
 		
-		System.out.println(leftBound + " " + RightBound);
-		System.out.println(minDiffIndex);
-		System.out.println(zlutC.length);
 		double[] data    = new double[RightBound-leftBound+1];
-		double[] indexes = new double[RightBound-leftBound+1];
-		
+		double[] indexes = {-2.0, -1.0, 0.0, 1.0, 2.0};
 		
 		for(int i = 0; i < RightBound-leftBound+1; i++) {
-			indexes[i] = zlutHeights[i];
-			data[i] = zlutC[i][0];
+			data[i] = zlutC[i+leftBound][0];
 		}
-		
-		System.out.println("Indexes " + Arrays.toString(indexes));
-		System.out.println("Data " + Arrays.toString(data));
-		
-		
+	
 		CurveFitter leastdiferenceFit = new CurveFitter(indexes, data);
 		leastdiferenceFit.doCustomFit("y = a + b*x + c*c*x*x", new double[] {0,0,0}, false);
 		
-		System.out.println(leastdiferenceFit.getStatusString());
-		System.out.println(Arrays.toString(leastdiferenceFit.getParams()));
-		
-		// -b/2c^2 because c^2 is the variable fit in the equation
-		return -leastdiferenceFit.getParams()[1]/(2*leastdiferenceFit.getParams()[2]*leastdiferenceFit.getParams()[2]);
+		// -b/2c^2 because c^2 is the variable fit in the equation and + mindiff to readjust
+		return -leastdiferenceFit.getParams()[1]/(2*leastdiferenceFit.getParams()[2]*leastdiferenceFit.getParams()[2])+zlutHeights[minDiffIndex];
 	}
 
 	
@@ -318,9 +302,7 @@ public class MagneticBead implements PlugInFilter {
 		
 		float[] radialProfile = new float[radius+1];
 		for(int i = 0; i < radius+1; i++) {
-			
 			radialProfile[i] = intensitySum[i]/numRho[i];
-			
 			if (Double.isNaN(radialProfile[i])) radialProfile[i] = 0;
 		}
 		
