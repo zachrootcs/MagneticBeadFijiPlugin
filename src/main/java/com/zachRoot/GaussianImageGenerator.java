@@ -1,5 +1,4 @@
 package com.zachRoot;
-import ij.ImagePlus;
 import ij.process.FloatProcessor;
 
 public class GaussianImageGenerator {

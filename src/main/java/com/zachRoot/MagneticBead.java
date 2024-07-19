@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Scanner;
 import java.util.regex.Matcher;
@@ -17,6 +18,7 @@ import ij.ImageStack;
 import ij.gui.GenericDialog;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
+import ij.gui.Plot;
 import ij.gui.Roi;
 import ij.io.FileSaver;
 import ij.measure.CurveFitter;
@@ -33,7 +35,7 @@ public class MagneticBead implements PlugInFilter {
 	
 	private float[][] zlut;
 	private int[]     zlutHeights; 
-	
+	private static double[]  z_cords;
 	private int width;
 	private int height;
 	private int radius;
@@ -61,8 +63,8 @@ public class MagneticBead implements PlugInFilter {
 		
 		width = ip.getWidth();
 		height = ip.getHeight();
-		
 		radius = width/3 - width%2;
+		z_cords = new double[image.getImageStackSize()];
 		
 		// Square Image is necessary
 		if(width != height) {
@@ -126,7 +128,6 @@ public class MagneticBead implements PlugInFilter {
 			processIP(stack.getProcessor(i), i);
 		}
 	}
-	
 	
 	// directory_path is the default go to
 	private void promptUserToSaveZLut(String directory_path) {
@@ -202,7 +203,8 @@ public class MagneticBead implements PlugInFilter {
 		
 		double zCord = compareWithZLut(radialProfile);
 		
-		System.out.println("The Calculated Z Cord is " + zCord);
+		z_cords[slice-1] = zCord;
+		System.out.println("The Calculated Z Cord is " + zCord + " " + slice);
 	}
 	
 	
@@ -240,17 +242,19 @@ public class MagneticBead implements PlugInFilter {
 		
 		//5 point curve fit
 		//Make sure it stays in bounds
-		/*
-		if(minDiffIndex-2 < 0 || minDiffIndex+2 > zlutC[0].length-1) {
-			IJ.showMessage("The radial profile of the image was too closely matched to a radial profile on the edge of the ZLUT. This causes the fit to be inacurate as it doesn't have enough data to create a 5 point quadratic fit. Program Quitting. ");
+		
+		if(minDiffIndex-2 < 0 || minDiffIndex+2 > zlutC.length-1) {
+			System.out.println(minDiffIndex);
+			//IJ.showMessage("The radial profile of the image was too closely matched to a radial profile on the edge of the ZLUT. This causes the fit to be inacurate as it doesn't have enough data to create a 5 point quadratic fit. Program Quitting. ");
 			return Double.NaN;
 		}
-		*/
-		int leftBound = (minDiffIndex-2 < 0) ? 0 : minDiffIndex-2;
-		int RightBound = (minDiffIndex+2 > zlutC.length-1) ? zlutC.length-1 : minDiffIndex+2;
+		
+		int leftBound =  minDiffIndex-2;
+		int RightBound = minDiffIndex+2;
 		
 		double[] data    = new double[RightBound-leftBound+1];
 		double[] indexes = {-2.0, -1.0, 0.0, 1.0, 2.0};
+		
 		
 		for(int i = 0; i < RightBound-leftBound+1; i++) {
 			data[i] = zlutC[i+leftBound][0];
@@ -259,6 +263,11 @@ public class MagneticBead implements PlugInFilter {
 		CurveFitter leastdiferenceFit = new CurveFitter(indexes, data);
 		leastdiferenceFit.doCustomFit("y = a + b*x + c*c*x*x", new double[] {0,0,0}, false);
 		
+		//System.out.println(Arrays.toString(data));
+		//System.out.println(Arrays.toString(indexes));
+		//System.out.println(Arrays.toString(leastdiferenceFit.getParams()));
+		//System.out.println(leastdiferenceFit.getStatusString());
+
 		// -b/2c^2 because c^2 is the variable fit in the equation and + mindiff to readjust
 		return -leastdiferenceFit.getParams()[1]/(2*leastdiferenceFit.getParams()[2]*leastdiferenceFit.getParams()[2])+zlutHeights[minDiffIndex];
 	}
@@ -283,7 +292,7 @@ public class MagneticBead implements PlugInFilter {
 				int rhoValue = (int)(Math.round(Math.sqrt((xyCord[0]-x)*(xyCord[0]-x) + (xyCord[1]-y)*(xyCord[1]-y))));
 				
 				if(rhoValue > radius) rhoValue = radius;
-				//if(rhoValue < 1)      rhoValue = 1;
+				if(rhoValue < 1)      rhoValue = 1;
 				
 				//Can remove is used for testing
 				rho[x+y*width] = rhoValue;
@@ -547,7 +556,7 @@ public class MagneticBead implements PlugInFilter {
 		
 	}
 	
-	private LinkedList<ImagePlus> getReferenceImages(String directory_path) {
+	private static LinkedList<ImagePlus> getReferenceImages(String directory_path) {
 		
 		AVI_Reader aviRead = new AVI_Reader();
 		
@@ -721,14 +730,55 @@ public class MagneticBead implements PlugInFilter {
 		java.io.File file = new java.io.File(url.toURI());
 		System.setProperty("plugins.dir", file.getAbsolutePath());
 		
+		//Directories
+		String bead1Zlut1Directory = "C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\07-16-24 Data\\Bead 1 ZLUT 1 50-55";
+		String bead1Zlut2Directory = "C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\07-16-24 Data\\Bead 1 ZLUT 2 50-55";
+		
+		//Convert individual images into stack
+		ImageStack stack1 = new ImageStack();
+		LinkedList<ImagePlus> imgs1 = getReferenceImages(bead1Zlut1Directory);
+		for(ImagePlus img: imgs1) {
+			stack1.addSlice(img.getProcessor());
+		}
+		ImageStack stack2 = new ImageStack();
+		LinkedList<ImagePlus> imgs2 = getReferenceImages(bead1Zlut2Directory);
+		for(ImagePlus img: imgs2) {
+			stack2.addSlice(img.getProcessor());
+		}
+		
 		// start ImageJ
 		new ImageJ();
-//C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\videos\\croped3.tif
-		ImagePlus image = new ImagePlus("C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\07-16-24 Data\\Bead 1 ZLUT 1 50-55\\54870\\2024-07-16-48862837.avi");
-		image.show();
+		//ImagePlus image =  new ImagePlus("C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\07-16-24 Data\\Bead 1 ZLUT 2 50-55\\54630\\2024-07-16-49425064.avi");
+		//image.show();
+		//IJ.runPlugIn(clazz.getName(), "");
 		
+		
+		ImagePlus image = new ImagePlus("Bead1Zlut1", stack1);
+		image.show();
+	
 		// run the plugin
 		IJ.runPlugIn(clazz.getName(), "");
+		double[] bead1Zlut1_z_cords = z_cords;
+		image.close();
+		
+		
+		//run it back w the other directory
+		image = new ImagePlus("Bead1Zlut2", stack2);
+		image.show();
+		IJ.runPlugIn(clazz.getName(), "");
+		double[] bead1Zlut2_z_cords = z_cords;
+		
+		double[] indexes = new double[z_cords.length];
+		for(int i = 0; i<z_cords.length; i++) {
+			indexes[i] = i;
+		}
+		System.out.println(Arrays.toString(bead1Zlut1_z_cords));
+		System.out.println(Arrays.toString(bead1Zlut2_z_cords));
+
+		Plot p = new Plot("Z Tracking Difference", "Frame number", "Z Cord");
+		p.add("line", indexes, bead1Zlut1_z_cords);
+		p.add("line", indexes, bead1Zlut2_z_cords);
+		p.show();
 		
 	}
 }
