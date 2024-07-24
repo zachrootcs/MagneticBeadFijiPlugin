@@ -2,6 +2,9 @@ package com.zachRoot;
 
 import java.awt.Color;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,19 +66,20 @@ public class MagneticBead implements PlugInFilter {
 			IJ.showMessage("Image must be square instead of " + width + "x" + height);
 			return;
 		}
-		
-		
-		
-		
+
 		z_cords = new double[image.getImageStackSize()];
 		
 		ZPositioning.createZLut(image);
 		processStack(image.getStack());
-		
+		display();
 	}
 	
 
 	
+	private void display() {
+		//IJ.showMessage(Arrays.toString(z_cords));		
+	}
+
 	public void processStack(ImageStack stack) {
 		//Start at one and process each frame in stack
 		for(int i = 1; i<=stack.size(); i++ ) {
@@ -84,11 +88,6 @@ public class MagneticBead implements PlugInFilter {
 	}
 	
 
-
-	
-
-
-	
 	public void processIP(ImageProcessor ip, int slice) {
 		
 		double[] xyCordSubPixel = XYPositioning.getBeadCenter(image, ip);
@@ -102,40 +101,37 @@ public class MagneticBead implements PlugInFilter {
 		//slice is 1-indexed so -1 to convert to 0 indexed 
 		z_cords[slice-1] = zCord;
 }
-	
-	
 
-
-    public static LinkedList<ImagePlus> getReferenceImages(String directory_path) {
+	// Returns an unsorted list of Comparable Images that were found in directory
+    public static ArrayList<ComparableImage> getReferenceImages(String directory_path) {
 		
 		AVI_Reader aviRead = new AVI_Reader();
 		
+		// Parent directory kept because the title should be the height of the image (IF IN A ZLUT)
 		File parent_directory = new File(directory_path);
 		File[] directory = parent_directory.listFiles();
 		
-		String regex = "^\\d+[A-Za-z]+\\.[A-Za-z0-9]+$";
-        Pattern pattern = Pattern.compile(regex);
-        
-        LinkedList<ImagePlus> images = new LinkedList<>();
+        ArrayList<ComparableImage> images = new ArrayList<>();
         for (File file: directory) {
         	
         	if(file.isDirectory()) {
         		images.addAll(getReferenceImages(file.getAbsolutePath()));
         	}
         	
-            Matcher matcher = pattern.matcher(file.getName());
             
-            if (matcher.matches()) {
-                images.add(new ImagePlus(file.getAbsolutePath()));
-                
-            } else if(file.getName().endsWith(".avi")){
+            if(file.getName().endsWith(".avi")){
             	
             	//Dumb way to get all the images 
             	//Forced to becasue of how james organized the data
             	//Convert to imageProcessor 
+            	
             	ImageProcessor img = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false).getProcessor(1);
+            	int height = Integer.parseInt(parent_directory.getName());
+            	long time = getTimeFromString(file.getName());
+            	String title = "Image at height: " + height + " and time: " + time;
+            	
             	//Name the image with the proper name
-            	images.add(new ImagePlus(parent_directory.getName(),img));
+            	images.add(new ComparableImage(title, img, height, time));
             	
             }
                 
@@ -144,7 +140,18 @@ public class MagneticBead implements PlugInFilter {
         return images;
         
         
-		/*
+		/*String regex = "^\\d+[A-Za-z]+\\.[A-Za-z0-9]+$";
+        Pattern pattern = Pattern.compile(regex);
+        Matcher matcher = pattern.matcher(file.getName());
+
+		 * if (matcher.matches()) {
+                images.add(new ImagePlus(file.getAbsolutePath()));
+                
+            } else
+		 * 
+		 * 
+		 * 
+		 * 
 		 * 	;
 		 * file.getName().endsWith(".avi")
 		for(File subDir: directory) {
@@ -179,13 +186,19 @@ public class MagneticBead implements PlugInFilter {
 	}
 
 	
-	
+	private static long getTimeFromString(String filename) {
+		Pattern pattern = Pattern.compile("\\d+(?=\\.avi$)");
+		Matcher matcher = pattern.matcher(filename);
+
+		if (matcher.find()) {
+		    long time = Long.parseLong(matcher.group());
+		    return time;
+		}
+		throw new RuntimeException("No time could be extracted from: " +filename);
+		
+	}
 
 	
-	
-
-
-
 	
 	public void showAbout() {
 		IJ.showMessage("Magnetic Bead Analysis", "Java Port of Matlab Project");
@@ -207,10 +220,51 @@ public class MagneticBead implements PlugInFilter {
 		java.io.File file = new java.io.File(url.toURI());
 		System.setProperty("plugins.dir", file.getAbsolutePath());
 		
-		
-		
+		//Two beads against the same zlut (Should match each others movement)
 		testTwoBeads();
 		
+		// Testing fluctuating bead against its actual position
+		testfluctuatingbead();
+		
+	}
+	
+	private static void testfluctuatingbead() {
+		String beadDirectory = "C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\07-16-24 Data\\Bead 1 Fluctuating ZLUT 50-55";
+		
+		ArrayList<ComparableImage> imgs = getReferenceImages(beadDirectory);
+		Collections.sort(imgs, ComparableImage.TIME_COMPARATOR);
+		
+		ImageStack stack = new ImageStack();
+		for(ImagePlus img: imgs) {
+			stack.addSlice(img.getProcessor());
+		}
+		
+		
+		//run it back w the other directory
+		image = new ImagePlus("Fluctuating bead", stack);
+		image.show();
+		
+		IJ.runPlugIn(MagneticBead.class.getName(), "");
+		double[] fluctuating_bead_z_cords = z_cords;
+		double[] actual_z_cords = new double[z_cords.length];
+		double[] difference = new double[z_cords.length];
+		double[] indexes = new double[z_cords.length];
+		
+		for(int i = 0; i<z_cords.length; i++) {
+			indexes[i] = i;
+			actual_z_cords[i] = imgs.get(i).getZPos();
+			difference[i] = fluctuating_bead_z_cords[i]-actual_z_cords[i];
+		}
+
+
+		Plot p = new Plot("Z Tracking", "Frame number", "Z Cord");
+		p.add("line", indexes, fluctuating_bead_z_cords);
+		p.add("line", indexes, actual_z_cords);
+		p.show();
+		
+		Plot d = new Plot("Z Tracking Difference", "Frame number", "Z Cord Difference");
+		d.add("line", indexes, difference);
+		d.show();
 		
 	}
 
@@ -221,12 +275,17 @@ public class MagneticBead implements PlugInFilter {
 		
 		//Convert individual images into stack
 		ImageStack stack1 = new ImageStack();
-		LinkedList<ImagePlus> imgs1 = getReferenceImages(bead1Zlut1Directory);
+		ArrayList<ComparableImage> imgs1 = getReferenceImages(bead1Zlut1Directory);
+		Collections.sort(imgs1, ComparableImage.TIME_COMPARATOR);
+		
 		for(ImagePlus img: imgs1) {
 			stack1.addSlice(img.getProcessor());
 		}
+		
 		ImageStack stack2 = new ImageStack();
-		LinkedList<ImagePlus> imgs2 = getReferenceImages(bead1Zlut2Directory);
+		ArrayList<ComparableImage> imgs2 = getReferenceImages(bead1Zlut2Directory);
+		Collections.sort(imgs2, ComparableImage.TIME_COMPARATOR);
+		
 		for(ImagePlus img: imgs2) {
 			stack2.addSlice(img.getProcessor());
 		}
@@ -257,8 +316,7 @@ public class MagneticBead implements PlugInFilter {
 		for(int i = 0; i<z_cords.length; i++) {
 			indexes[i] = i;
 		}
-		//System.out.println(Arrays.toString(bead1Zlut1_z_cords));
-		//System.out.println(Arrays.toString(bead1Zlut2_z_cords));
+
 
 		Plot p = new Plot("Z Tracking Difference", "Frame number", "Z Cord");
 		p.add("line", indexes, bead1Zlut1_z_cords);

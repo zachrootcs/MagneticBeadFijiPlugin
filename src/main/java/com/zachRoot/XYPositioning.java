@@ -34,6 +34,8 @@ public class XYPositioning {
 	}
 	
 
+	
+	
 	/* This function is a java version of this matlab code:
 	 * 
 	 * function [x, y] = fitBeadByCenterOfMass(S)

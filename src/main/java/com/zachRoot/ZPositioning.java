@@ -2,6 +2,8 @@ package com.zachRoot;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Scanner;
 import java.util.regex.Matcher;
@@ -26,6 +28,7 @@ public class ZPositioning {
 	
 	static final int nPointsQuadFit = 5;
 	
+	
 	public static void createZLut(ImagePlus img) {
 		
 		//make sure its even
@@ -41,7 +44,8 @@ public class ZPositioning {
 		}
 		
 		// ZLut Component Images
-		LinkedList<ImagePlus> images = MagneticBead.getReferenceImages(directory_path);
+		ArrayList<ComparableImage> images = MagneticBead.getReferenceImages(directory_path);
+		Collections.sort(images, ComparableImage.Z_COMPARATOR);
 		
 		// Matrix with each index being the radial profile of image about center of bead
 		zlut        = new float[images.size()][radius+1];
@@ -55,7 +59,7 @@ public class ZPositioning {
 			zlut[i] = createRadialProfile(xyCordSubPixel, ip);
 			
 			// Get the height of the image from the image title
-			zlutHeights[i] = extractStartingNumber(images.get(i).getTitle());
+			zlutHeights[i] = images.get(i).getZPos();
 
 		}
 		
@@ -174,6 +178,8 @@ public class ZPositioning {
 		// Readjust b to line up with the minimum difference index
 		return scaledDifference + zlutHeights[minDiffIndex];
 	}
+	
+	
 	
 	//Checks if zlut is in the folder and calls the loading function if found
 	private static boolean isZlutInFolder(String directory_path) {
