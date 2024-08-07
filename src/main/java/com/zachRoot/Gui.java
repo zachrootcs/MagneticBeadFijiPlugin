@@ -61,14 +61,11 @@ public class Gui {
 		return;
 	}
 	
-	public static String getDirectoryFromUser() {
+	public static String getDirectoryFromUser(String title, String message) {
 		
-		GenericDialog g = new GenericDialog(
-				"TO DO"
-		);
+		GenericDialog g = new GenericDialog(title);
 		
-		g.addMessage(
-				"TO DO");
+		g.addMessage(message);
 		
 		g.addDirectoryField("Directory", "C:\\Users\\");
 		g.showDialog();

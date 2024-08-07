@@ -1,11 +1,9 @@
 package com.zachRoot;
 
-import java.awt.Color;
+
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,15 +12,12 @@ import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.WindowManager;
-import ij.gui.OvalRoi;
-import ij.gui.Overlay;
+
 import ij.gui.Plot;
-import ij.gui.PlotWindow;
-import ij.gui.Roi;
 
 import ij.plugin.AVI_Reader;
 import ij.plugin.PlugIn;
-import ij.plugin.filter.PlugInFilter;
+
 
 
 import ij.process.ImageProcessor;
@@ -45,34 +40,6 @@ public class MagneticBead implements PlugIn {
 	private String length_unit;
 	
 	
-	/*
-	public int setup(String arg, ImagePlus input_image) {
-		if (arg.equals("about")) {
-			showAbout();
-			return DONE;
-		}
-		
-		// check if an image was dragged in
-		if(input_image == null) {
-			String user_directory = Gui.getDirectoryFromUser();
-			ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory);
-			images.sort(ComparableImagePlus.TIME_COMPARATOR);
-			
-			ImageStack imgstk = new ImageStack();
-			for(ComparableImagePlus img: images) {
-				imgstk.addSlice(img.getProcessor());
-			}
-			input_image = new ImagePlus("Image from: " + user_directory, imgstk);
-			input_image.show();
-			
-		} 
-		
-		image = input_image;
-		
-		
-		return DOES_8G | DOES_16 | DOES_32;
-	}
-	*/
 	@Override
 	public void run(String arg) {
 		
@@ -89,39 +56,17 @@ public class MagneticBead implements PlugIn {
 		
 		image.show();
 		
-		width = image.getWidth();
-		height = image.getHeight();
-		z_cords = new double[image.getImageStackSize()];
+		initializeVariables();
+		validateImage();
 		
-		// Square Image is necessary
-		if(width != height) {
-			IJ.showMessage("Image must be square instead of " + width + "x" + height);
-			return;
-		}
 
 		ZPositioning.createZLut(image);
 		processStack(image.getStack());
-		
 		display();
 	}
 	
-	private ImagePlus retrieveUserImage() {
-		String user_directory = Gui.getDirectoryFromUser();
-		
-		ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory);
-		images.sort(ComparableImagePlus.TIME_COMPARATOR);
-		
-		ImageStack imgstk = new ImageStack();
-		for(ComparableImagePlus img: images) {
-			imgstk.addSlice(img.getProcessor());
-		}
-		
-		return new ImagePlus("Image from: " + user_directory, imgstk);
-	}
-
-	
 	private void display() {
-		System.out.println("here");
+		
 		double[] indexes = new double[z_cords.length];
 	
 		for(int i = 0; i<z_cords.length; i++) {
@@ -130,9 +75,7 @@ public class MagneticBead implements PlugIn {
 
 		Plot p = new Plot("Z Tracking", "Frame number", "Z Cord");
 		p.add("line", indexes, z_cords);
-		PlotWindow pw = p.show();
-		//System.out.println(pw.toString());
-		System.out.println(Arrays.toString(z_cords));
+		p.show();
 	}
 
 	public void processStack(ImageStack stack) {
@@ -173,72 +116,47 @@ public class MagneticBead implements PlugIn {
         		images.addAll(getReferenceImages(file.getAbsolutePath()));
         	}
         	
-            
             if(file.getName().endsWith(".avi")){
             	
             	//Dumb way to get all the images 
-            	//Forced to becasue of how james organized the data            	
-            	ImageProcessor img = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false).getProcessor(1);
-            	int height = Integer.parseInt(parent_directory.getName());
-            	long time = getTimeFromString(file.getName());
-            	String title = "Image at height: " + height + " and time: " + time;
-            	
-            	//Name the image with the proper name
-            	images.add(new ComparableImagePlus(title, img, height, time));
-            	
-            }
-                
-        }
-        
-        return images;
-        
-        
-		/*String regex = "^\\d+[A-Za-z]+\\.[A-Za-z0-9]+$";
-        Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(file.getName());
-
-		 * if (matcher.matches()) {
-                images.add(new ImagePlus(file.getAbsolutePath()));
-                
-            } else
-		 * 
-		 * 
-		 * 
-		 * 
-		 * 	;
-		 * file.getName().endsWith(".avi")
-		for(File subDir: directory) {
-			if(subDir.isDirectory()) {
-				for(File file: subDir.listFiles()) {
-					if(file.getName().endsWith(".avi"))
-				}
-			}
-		}
-		// of the form: numbers letters . extension
-		File[] directory = new File(directory_path).listFiles();
-		
-		String regex = "^\\d+[A-Za-z]+\\.[A-Za-z0-9]+$";
-        Pattern pattern = Pattern.compile(regex);
-        
-        LinkedList<ImagePlus> images = new LinkedList<>();
-        for (File file: directory) {
-        	
-            Matcher matcher = pattern.matcher(file.getName());
+            	//Forced to becasue of how james organized the data
+            	ImageStack imgstk = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false);
+            	for(int i = 1; i<=imgstk.size(); i++) {
+            		ImageProcessor img = imgstk.getProcessor(i);
+                	int height = Integer.parseInt(parent_directory.getName());
+                	long time = getTimeFromString(file.getName());
+                	String title = "Image at height: " + height + " and time: " + time;
+                	
+                	//Name the image with the proper name
+                	images.add(new ComparableImagePlus(title, img, height, time));
+            	}
             
-            if (matcher.matches() ) {
-                System.out.println(file.getName() + " matches the pattern.");
-                images.add(new ImagePlus(file.getAbsolutePath()));
-                
-            } else {
-                System.out.println(file.getName() + " does not match the pattern.");
+   
             }
+                
         }
+        
         return images;
         
-        */
 	}
 
-	
+
+	private void validateImage() {
+		// Square Image is necessary
+		if(width != height) {
+			IJ.showMessage("Image must be square instead of " + width + "x" + height);
+			return;
+		}
+
+	}
+
+
+	private void initializeVariables() {
+		width = image.getWidth();
+		height = image.getHeight();
+		z_cords = new double[image.getImageStackSize()];
+		
+	}
 	private static long getTimeFromString(String filename) {
 		Pattern pattern = Pattern.compile("\\d+(?=\\.avi$)");
 		Matcher matcher = pattern.matcher(filename);
@@ -249,7 +167,23 @@ public class MagneticBead implements PlugIn {
 		}
 		throw new RuntimeException("No time could be extracted from: " +filename);
 	}
+	
+	// Retrieves an image using getReferenceImages() sorted by time and converted 
+	private ImagePlus retrieveUserImage() {
+		String user_directory = Gui.getDirectoryFromUser("Select Folder for Image","Select a directory. Each image should be titled with the time it was taking in year-month-day-millisecond format");
+		
+		ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory);
+		images.sort(ComparableImagePlus.TIME_COMPARATOR);
+		
+		ImageStack imgstk = new ImageStack();
+		for(ComparableImagePlus img: images) {
+			imgstk.addSlice(img.getProcessor());
+		}
+		
+		return new ImagePlus("Image from: " + user_directory, imgstk);
+	}
 
+	
 	
 	
 	public void showAbout() {

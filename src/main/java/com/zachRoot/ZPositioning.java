@@ -28,6 +28,11 @@ public class ZPositioning {
 	
 	static final int nPointsQuadFit = 5;
 	
+	static final String UI_ZLUT_DIR_TITLE = "Choose directory for Z Positioning";
+	static final String UI_ZLUT_DIR_MESSAGE = 
+			"Select a directory for the references to create a ZLUT "
+			+ "/nor where a previous ZLUT has already been created";
+	
 	
 	public static void createZLut(ImagePlus img) {
 		
@@ -35,7 +40,7 @@ public class ZPositioning {
 		radius = img.getWidth()/3 - img.getWidth()%2;
 		
 		// Directory for ZLUT Reference Images
-		String directory_path = Gui.getDirectoryFromUser();		
+		String directory_path = Gui.getDirectoryFromUser(UI_ZLUT_DIR_TITLE, UI_ZLUT_DIR_MESSAGE);		
 		
 		// Checks to see if the zlut was previously saved in the folder then loads it into the zlut variable
 		if(isZlutInFolder(directory_path)) {
