@@ -13,13 +13,15 @@ import ij.IJ;
 import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
-
+import ij.WindowManager;
 import ij.gui.OvalRoi;
 import ij.gui.Overlay;
 import ij.gui.Plot;
+import ij.gui.PlotWindow;
 import ij.gui.Roi;
 
 import ij.plugin.AVI_Reader;
+import ij.plugin.PlugIn;
 import ij.plugin.filter.PlugInFilter;
 
 
@@ -27,7 +29,7 @@ import ij.process.ImageProcessor;
 
 
 
-public class MagneticBead implements PlugInFilter {
+public class MagneticBead implements PlugIn {
 	
 	//Image attributes
 	protected static ImagePlus image;
@@ -43,23 +45,53 @@ public class MagneticBead implements PlugInFilter {
 	private String length_unit;
 	
 	
-
-	@Override
-	public int setup(String arg, ImagePlus image) {
+	/*
+	public int setup(String arg, ImagePlus input_image) {
 		if (arg.equals("about")) {
 			showAbout();
 			return DONE;
 		}
 		
-		this.image = image;
+		// check if an image was dragged in
+		if(input_image == null) {
+			String user_directory = Gui.getDirectoryFromUser();
+			ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory);
+			images.sort(ComparableImagePlus.TIME_COMPARATOR);
+			
+			ImageStack imgstk = new ImageStack();
+			for(ComparableImagePlus img: images) {
+				imgstk.addSlice(img.getProcessor());
+			}
+			input_image = new ImagePlus("Image from: " + user_directory, imgstk);
+			input_image.show();
+			
+		} 
+		
+		image = input_image;
+		
+		
 		return DOES_8G | DOES_16 | DOES_32;
 	}
-
+	*/
 	@Override
-	public void run(ImageProcessor ip) {
+	public void run(String arg) {
 		
-		width = ip.getWidth();
-		height = ip.getHeight();
+		if (arg.equals("about")) {
+			showAbout();
+			return;
+		}
+		
+		image = WindowManager.getCurrentImage();
+		
+		if(image == null) {
+			image = retrieveUserImage();
+		}
+		
+		image.show();
+		
+		width = image.getWidth();
+		height = image.getHeight();
+		z_cords = new double[image.getImageStackSize()];
 		
 		// Square Image is necessary
 		if(width != height) {
@@ -67,16 +99,29 @@ public class MagneticBead implements PlugInFilter {
 			return;
 		}
 
-		z_cords = new double[image.getImageStackSize()];
-		
 		ZPositioning.createZLut(image);
 		processStack(image.getStack());
+		
 		display();
 	}
 	
+	private ImagePlus retrieveUserImage() {
+		String user_directory = Gui.getDirectoryFromUser();
+		
+		ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory);
+		images.sort(ComparableImagePlus.TIME_COMPARATOR);
+		
+		ImageStack imgstk = new ImageStack();
+		for(ComparableImagePlus img: images) {
+			imgstk.addSlice(img.getProcessor());
+		}
+		
+		return new ImagePlus("Image from: " + user_directory, imgstk);
+	}
 
 	
 	private void display() {
+		System.out.println("here");
 		double[] indexes = new double[z_cords.length];
 	
 		for(int i = 0; i<z_cords.length; i++) {
@@ -85,8 +130,9 @@ public class MagneticBead implements PlugInFilter {
 
 		Plot p = new Plot("Z Tracking", "Frame number", "Z Cord");
 		p.add("line", indexes, z_cords);
-		p.show();
-		
+		PlotWindow pw = p.show();
+		//System.out.println(pw.toString());
+		System.out.println(Arrays.toString(z_cords));
 	}
 
 	public void processStack(ImageStack stack) {
@@ -226,14 +272,22 @@ public class MagneticBead implements PlugInFilter {
 		java.io.File file = new java.io.File(url.toURI());
 		System.setProperty("plugins.dir", file.getAbsolutePath());
 		
+		
+		//test no image
+		testNoImage();
 		//Two beads against the same zlut (Should match each others movement)
-		testTwoBeads();
+		//testTwoBeads();
 		
 		// Testing fluctuating bead against its actual position
-		testfluctuatingbead();
+		//testfluctuatingbead();
 		
 	}
 	
+	private static void testNoImage() {
+		new ImageJ();
+		IJ.runPlugIn(MagneticBead.class.getName(), "");
+	}
+
 	private static void testfluctuatingbead() {
 		String beadDirectory = "C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\07-16-24 Data\\Bead 1 Fluctuating ZLUT 50-55";
 		
@@ -330,4 +384,7 @@ public class MagneticBead implements PlugInFilter {
 		p.show();
 		
 	}
+
+
+	
 }

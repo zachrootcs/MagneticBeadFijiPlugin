@@ -64,13 +64,11 @@ public class Gui {
 	public static String getDirectoryFromUser() {
 		
 		GenericDialog g = new GenericDialog(
-				"Select Directory for Magnetic Bead Z Space Localization"
+				"TO DO"
 		);
 		
 		g.addMessage(
-				"Each image in the directory must be titled with the number "
-				+ "corresponding with the Z position and unit (i.e. 200nm.tif) "
-				+ "\nor the ZLut must already be saved there");
+				"TO DO");
 		
 		g.addDirectoryField("Directory", "C:\\Users\\");
 		g.showDialog();
