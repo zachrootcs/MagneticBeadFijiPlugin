@@ -44,8 +44,8 @@ public class ZPositioning {
 		}
 		
 		// ZLut Component Images
-		ArrayList<ComparableImage> images = MagneticBead.getReferenceImages(directory_path);
-		Collections.sort(images, ComparableImage.Z_COMPARATOR);
+		ArrayList<ComparableImagePlus> images = MagneticBead.getReferenceImages(directory_path);
+		Collections.sort(images, ComparableImagePlus.Z_COMPARATOR);
 		
 		// Matrix with each index being the radial profile of image about center of bead
 		zlut        = new float[images.size()][radius+1];

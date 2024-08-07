@@ -77,7 +77,16 @@ public class MagneticBead implements PlugInFilter {
 
 	
 	private void display() {
-		//IJ.showMessage(Arrays.toString(z_cords));		
+		double[] indexes = new double[z_cords.length];
+	
+		for(int i = 0; i<z_cords.length; i++) {
+			indexes[i] = i;
+		}
+
+		Plot p = new Plot("Z Tracking", "Frame number", "Z Cord");
+		p.add("line", indexes, z_cords);
+		p.show();
+		
 	}
 
 	public void processStack(ImageStack stack) {
@@ -103,7 +112,7 @@ public class MagneticBead implements PlugInFilter {
 }
 
 	// Returns an unsorted list of Comparable Images that were found in directory
-    public static ArrayList<ComparableImage> getReferenceImages(String directory_path) {
+    public static ArrayList<ComparableImagePlus> getReferenceImages(String directory_path) {
 		
 		AVI_Reader aviRead = new AVI_Reader();
 		
@@ -111,7 +120,7 @@ public class MagneticBead implements PlugInFilter {
 		File parent_directory = new File(directory_path);
 		File[] directory = parent_directory.listFiles();
 		
-        ArrayList<ComparableImage> images = new ArrayList<>();
+        ArrayList<ComparableImagePlus> images = new ArrayList<>();
         for (File file: directory) {
         	
         	if(file.isDirectory()) {
@@ -122,16 +131,14 @@ public class MagneticBead implements PlugInFilter {
             if(file.getName().endsWith(".avi")){
             	
             	//Dumb way to get all the images 
-            	//Forced to becasue of how james organized the data
-            	//Convert to imageProcessor 
-            	
+            	//Forced to becasue of how james organized the data            	
             	ImageProcessor img = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false).getProcessor(1);
             	int height = Integer.parseInt(parent_directory.getName());
             	long time = getTimeFromString(file.getName());
             	String title = "Image at height: " + height + " and time: " + time;
             	
             	//Name the image with the proper name
-            	images.add(new ComparableImage(title, img, height, time));
+            	images.add(new ComparableImagePlus(title, img, height, time));
             	
             }
                 
@@ -195,7 +202,6 @@ public class MagneticBead implements PlugInFilter {
 		    return time;
 		}
 		throw new RuntimeException("No time could be extracted from: " +filename);
-		
 	}
 
 	
@@ -231,8 +237,8 @@ public class MagneticBead implements PlugInFilter {
 	private static void testfluctuatingbead() {
 		String beadDirectory = "C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\07-16-24 Data\\Bead 1 Fluctuating ZLUT 50-55";
 		
-		ArrayList<ComparableImage> imgs = getReferenceImages(beadDirectory);
-		Collections.sort(imgs, ComparableImage.TIME_COMPARATOR);
+		ArrayList<ComparableImagePlus> imgs = getReferenceImages(beadDirectory);
+		Collections.sort(imgs, ComparableImagePlus.TIME_COMPARATOR);
 		
 		ImageStack stack = new ImageStack();
 		for(ImagePlus img: imgs) {
@@ -275,16 +281,16 @@ public class MagneticBead implements PlugInFilter {
 		
 		//Convert individual images into stack
 		ImageStack stack1 = new ImageStack();
-		ArrayList<ComparableImage> imgs1 = getReferenceImages(bead1Zlut1Directory);
-		Collections.sort(imgs1, ComparableImage.TIME_COMPARATOR);
+		ArrayList<ComparableImagePlus> imgs1 = getReferenceImages(bead1Zlut1Directory);
+		Collections.sort(imgs1, ComparableImagePlus.TIME_COMPARATOR);
 		
 		for(ImagePlus img: imgs1) {
 			stack1.addSlice(img.getProcessor());
 		}
 		
 		ImageStack stack2 = new ImageStack();
-		ArrayList<ComparableImage> imgs2 = getReferenceImages(bead1Zlut2Directory);
-		Collections.sort(imgs2, ComparableImage.TIME_COMPARATOR);
+		ArrayList<ComparableImagePlus> imgs2 = getReferenceImages(bead1Zlut2Directory);
+		Collections.sort(imgs2, ComparableImagePlus.TIME_COMPARATOR);
 		
 		for(ImagePlus img: imgs2) {
 			stack2.addSlice(img.getProcessor());
