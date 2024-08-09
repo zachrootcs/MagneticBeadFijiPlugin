@@ -1,6 +1,5 @@
 package com.zachRoot;
 
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,14 +11,9 @@ import ij.ImageJ;
 import ij.ImagePlus;
 import ij.ImageStack;
 import ij.WindowManager;
-
 import ij.gui.Plot;
-
 import ij.plugin.AVI_Reader;
 import ij.plugin.PlugIn;
-
-
-
 import ij.process.ImageProcessor;
 
 
@@ -73,6 +67,7 @@ public class MagneticBead implements PlugIn {
 		
 	}
 	
+	
 	private void display() {
 		
 		double[] indexes = new double[z_cords.length];
@@ -81,7 +76,7 @@ public class MagneticBead implements PlugIn {
 			indexes[i] = i;
 		}
 
-		Plot p = new Plot("Z Tracking", "Frame number", "Z Cord");
+		Plot p = new Plot("Z Tracking", "Frame number", "Z Coordinate");
 		p.add("line", indexes, z_cords);
 		p.show();
 	}
@@ -103,7 +98,6 @@ public class MagneticBead implements PlugIn {
 		
 		double zCord = ZPositioning.calculateZCord(xyCordSubPixel, ip); 
 				
-		
 		//slice is 1-indexed so -1 to convert to 0 indexed 
 		z_cords[slice-1] = zCord;
 }
@@ -124,27 +118,27 @@ public class MagneticBead implements PlugIn {
         		images.addAll(getReferenceImages(file.getAbsolutePath()));
         	}
         	
+        	//Add support for more files
             if(file.getName().endsWith(".avi")){
-            	
-            	//Dumb way to get all the images 
-            	//Forced to becasue of how james organized the data
-            	IJ.log(directory_path + "  " + file.getName());
+            
             	ImageStack imgstk = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false);
-            	IJ.log(""+imgstk.size());
-            	
-            	(new ImagePlus(file.getName(), imgstk)).show();
+            	            	
             	// for each frame in video stack
             	for(int i = 1; i<=imgstk.size(); i++) {
             		ImageProcessor img = imgstk.getProcessor(i);
             		
-            		int height;
-            		long time;
+            		int height = 0;
+            		long time = 0;
             		
             		try {	
             			height = Integer.parseInt(parent_directory.getName());
                     	time = getTimeFromString(file.getName());
                     	
-            		} catch (Exception e) {
+            		} catch (NumberFormatException e) {
+            			height = 0;
+            			//FIX LATER
+            		} catch(IllegalArgumentException e) {
+            			// time couldnt be parsed. Skip iteration
             			continue;
             		}
                 	
@@ -188,7 +182,7 @@ public class MagneticBead implements PlugIn {
 		    long time = Long.parseLong(matcher.group());
 		    return time;
 		}
-		throw new RuntimeException("No time could be extracted from: " +filename);
+		throw new IllegalArgumentException("No time could be extracted from: " +filename);
 	}
 	
 	// Retrieves an image using getReferenceImages() sorted by time and converted 
@@ -210,20 +204,11 @@ public class MagneticBead implements PlugIn {
 	}
 
 	
-	
-	
 	public void showAbout() {
 		IJ.showMessage("Magnetic Bead Analysis", "Java Port of Matlab Project");
 	}
 	
-	/**
-	 * Main method for debugging.
-	 *
-	 * For debugging, it is convenient to have a method that starts ImageJ, loads
-	 * an image and calls the plugin, e.g. after setting breakpoints.
-	 *
-	 * @param args unused
-	 */
+	
 	public static void main(String[] args) throws Exception {
 		// set the plugins.dir property to make the plugin appear in the Plugins menu
 		// see: https://stackoverflow.com/a/7060464/1207769

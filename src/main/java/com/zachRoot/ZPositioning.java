@@ -4,14 +4,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import ij.IJ;
 import ij.ImagePlus;
 import ij.measure.CurveFitter;
-import ij.plugin.AVI_Reader;
 import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
@@ -28,6 +27,7 @@ public class ZPositioning {
 	
 	static final int nPointsQuadFit = 5;
 	
+	// Strings for UI text
 	static final String UI_ZLUT_DIR_TITLE = "Choose directory for Z Positioning";
 	static final String UI_ZLUT_DIR_MESSAGE = 
 			"Select a directory for the references to create a ZLUT "
@@ -44,7 +44,6 @@ public class ZPositioning {
 		
 		// Checks to see if the zlut was previously saved in the folder then loads it into the zlut variable
 		if(isZlutInFolder(directory_path)) {
-			System.out.println("ZlutSaved");
 			return;
 		}
 		
@@ -56,6 +55,7 @@ public class ZPositioning {
 		zlut        = new float[images.size()][radius+1];
 		zlutHeights = new int  [images.size()];
 		
+		// Loop through each image
 		for(int i = 0; i<images.size(); i++) {
 			ImageProcessor ip = images.get(i).getProcessor();
 			
@@ -63,15 +63,26 @@ public class ZPositioning {
 			
 			zlut[i] = createRadialProfile(xyCordSubPixel, ip);
 			
-			// Get the height of the image from the image title
 			zlutHeights[i] = images.get(i).getZPos();
-
+			
 		}
-		
+		if(checkDuplicates(zlutHeights)) {
+			IJ.showMessage("Warning: There exists duplicate radial profiles in this ZLUT. This can cause Z positioning to be inaccurate");
+		}
 		Gui.promptUserToSaveZLut(directory_path); 
 	}
 	
 	
+	private static boolean checkDuplicates(int[] arr) {
+		for(int i = 0; i<arr.length-1; i++) {
+			if(arr[i] == arr[i+1]) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+
 	private static float[] createRadialProfile(double[] xyCord, ImageProcessor ip) {
 		
 		int width = ip.getWidth();
@@ -176,9 +187,6 @@ public class ZPositioning {
 		
 		int delta = zlutHeights[minDiffIndex]-zlutHeights[minDiffIndex-1];
 		
-		//System.out.println(b + " " + delta);
-		
-		
 		double scaledDifference = b*delta;
 		// Readjust b to line up with the minimum difference index
 		return scaledDifference + zlutHeights[minDiffIndex];
@@ -246,22 +254,6 @@ public class ZPositioning {
             	zlut[x][y] = pixels[y*width + x];
             }
         }
-	}
-	// Title of image should be numbers units . extension
-	// Returns starting numbers
-	private static int extractStartingNumber(String title) {
-		
-		//regex for starting numbers
-	 	Pattern pattern = Pattern.compile("^\\d+");
-        Matcher matcher = pattern.matcher(title);
-        
-        if (matcher.find()) {
-            String numbers = matcher.group(); 
-            return Integer.parseInt(numbers);
-        } else {
-        	throw new RuntimeException("Title does not contain starting numbers");
-        }
- 
 	}
 
 
