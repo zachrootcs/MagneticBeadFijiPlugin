@@ -50,8 +50,15 @@ public class MagneticBead implements PlugIn {
 		
 		image = WindowManager.getCurrentImage();
 		
+		// no image found
 		if(image == null) {
 			image = retrieveUserImage();
+			
+			// no images found in user directory
+			if(image == null) {
+				IJ.showMessage("Could not find any images in that directory");
+				return;
+			}
 		}
 		
 		image.show();
@@ -63,6 +70,7 @@ public class MagneticBead implements PlugIn {
 		ZPositioning.createZLut(image);
 		processStack(image.getStack());
 		display();
+		
 	}
 	
 	private void display() {
@@ -120,15 +128,30 @@ public class MagneticBead implements PlugIn {
             	
             	//Dumb way to get all the images 
             	//Forced to becasue of how james organized the data
+            	IJ.log(directory_path + "  " + file.getName());
             	ImageStack imgstk = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false);
+            	IJ.log(""+imgstk.size());
+            	
+            	(new ImagePlus(file.getName(), imgstk)).show();
+            	// for each frame in video stack
             	for(int i = 1; i<=imgstk.size(); i++) {
             		ImageProcessor img = imgstk.getProcessor(i);
-                	int height = Integer.parseInt(parent_directory.getName());
-                	long time = getTimeFromString(file.getName());
+            		
+            		int height;
+            		long time;
+            		
+            		try {	
+            			height = Integer.parseInt(parent_directory.getName());
+                    	time = getTimeFromString(file.getName());
+                    	
+            		} catch (Exception e) {
+            			continue;
+            		}
+                	
                 	String title = "Image at height: " + height + " and time: " + time;
                 	
-                	//Name the image with the proper name
-                	images.add(new ComparableImagePlus(title, img, height, time));
+                	images.add(new ComparableImagePlus(title, img, height, time, i));
+         
             	}
             
    
@@ -174,6 +197,9 @@ public class MagneticBead implements PlugIn {
 		
 		ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory);
 		images.sort(ComparableImagePlus.TIME_COMPARATOR);
+		
+		// No images found
+		if (images.size()==0) return null;
 		
 		ImageStack imgstk = new ImageStack();
 		for(ComparableImagePlus img: images) {
