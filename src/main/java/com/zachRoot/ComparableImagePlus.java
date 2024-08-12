@@ -9,7 +9,8 @@ import ij.process.ImageProcessor;
 // An extension of ImagePlus that allows time and the z position to be compared
 public class ComparableImagePlus extends ImagePlus{
 	
-	private int zPos;
+	
+	private double zPos;
 	private long time;
 	
 	//If two images come from the same video they'll have the same time
@@ -19,14 +20,14 @@ public class ComparableImagePlus extends ImagePlus{
 	public static final Comparator<ComparableImagePlus> TIME_COMPARATOR = new TimeComparator();
 	public static final Comparator<ComparableImagePlus> Z_COMPARATOR = new ZComparator();
 
-	public ComparableImagePlus(String title, ImageProcessor ip, int height, long time2, int frame) {
+	public ComparableImagePlus(String title, ImageProcessor ip, double height, long time2, int frame) {
 		super(title, ip);
 		this.zPos = height;
 		this.time = time2;
 		this.frame = frame;
 	}
 
-	public int getZPos() {
+	public double getZPos() {
 		return zPos;
 	}
 	
@@ -41,7 +42,7 @@ public class ComparableImagePlus extends ImagePlus{
 		public int compare(ComparableImagePlus o1, ComparableImagePlus o2) {
 			
 			if(o1.time != o2.time) {
-				return (int) (o1.time - o2.time);
+				return Long.compare(o1.time, o2.time);
 			}else {
 				//Sort by frame number instead
 				return o1.frame - o2.frame;
@@ -53,7 +54,8 @@ public class ComparableImagePlus extends ImagePlus{
 
 		@Override
 		public int compare(ComparableImagePlus o1, ComparableImagePlus o2) {
-			return o1.zPos - o2.zPos;
+			// A way of preventing casting to int and losing decimal data 
+			return Double.compare(o1.zPos, o2.zPos);
 		}
 		
 	}

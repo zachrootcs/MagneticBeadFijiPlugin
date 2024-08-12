@@ -23,7 +23,7 @@ public class ZPositioning {
 	static float[][] zlut;
 	
 	// Corresponding z positions for the zlut
-	static int[] zlutHeights;
+	static double[] zlutHeights;
 	
 	static final int nPointsQuadFit = 5;
 	
@@ -52,8 +52,8 @@ public class ZPositioning {
 		Collections.sort(images, ComparableImagePlus.Z_COMPARATOR);
 		
 		// Matrix with each index being the radial profile of image about center of bead
-		zlut        = new float[images.size()][radius+1];
-		zlutHeights = new int  [images.size()];
+		zlut        = new float [images.size()][radius+1];
+		zlutHeights = new double[images.size()];
 		
 		// Loop through each image
 		for(int i = 0; i<images.size(); i++) {
@@ -73,9 +73,9 @@ public class ZPositioning {
 	}
 	
 	
-	private static boolean checkDuplicates(int[] arr) {
-		for(int i = 0; i<arr.length-1; i++) {
-			if(arr[i] == arr[i+1]) {
+	private static boolean checkDuplicates(double[] zlutHeights2) {
+		for(int i = 0; i<zlutHeights2.length-1; i++) {
+			if(zlutHeights2[i] == zlutHeights2[i+1]) {
 				return true;
 			}
 		}
@@ -185,7 +185,7 @@ public class ZPositioning {
 			return Double.NaN;
 		}
 		
-		int delta = zlutHeights[minDiffIndex]-zlutHeights[minDiffIndex-1];
+		double delta = zlutHeights[minDiffIndex]-zlutHeights[minDiffIndex-1];
 		
 		double scaledDifference = b*delta;
 		// Readjust b to line up with the minimum difference index
@@ -215,7 +215,7 @@ public class ZPositioning {
 	private static void loadZLUTHeights(File file) {
 		
 		// Prealloc
-		zlutHeights = new int[zlut.length];
+		zlutHeights = new double[zlut.length];
 		try {
 			//File is program made and follows the csv format
 			Scanner scanner = new Scanner(file);
@@ -255,6 +255,7 @@ public class ZPositioning {
             }
         }
 	}
+
 
 
 	public static double calculateZCord(double[] xyCordSubPixel, ImageProcessor ip) {

@@ -47,7 +47,7 @@ public class Gui {
 			FileWriter outputfile = new FileWriter(zlutHeightsfile); 
 			String output = "";
 			
-			for(int i: ZPositioning.zlutHeights) {
+			for(double i: ZPositioning.zlutHeights) {
 				output += i + ",";
 			}
 			

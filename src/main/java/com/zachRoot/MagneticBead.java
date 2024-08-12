@@ -3,6 +3,7 @@ package com.zachRoot;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IllegalFormatException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,9 +27,10 @@ public class MagneticBead implements PlugIn {
 	private int height;
 	
 	
-	// List of z positions for the image if it has more than 1 frame 
+	// List of positions for the image 
 	private static double[]  z_cords;
-	
+	private static double[]  x_cords;
+	private static double[]  y_cords;
 	
 	//To do implement
 	private String length_unit;
@@ -68,6 +70,8 @@ public class MagneticBead implements PlugIn {
 	}
 	
 	
+	
+	// Displays the x vs y position and z position vs frame number on a plot
 	private void display() {
 		
 		double[] indexes = new double[z_cords.length];
@@ -79,6 +83,11 @@ public class MagneticBead implements PlugIn {
 		Plot p = new Plot("Z Tracking", "Frame number", "Z Coordinate");
 		p.add("line", indexes, z_cords);
 		p.show();
+		
+		p = new Plot("XY Tracking", "X Coordinate", "Y Coordinate");
+		p.add("line", x_cords, y_cords);
+		p.show();
+		
 	}
 
 	public void processStack(ImageStack stack) {
@@ -93,17 +102,19 @@ public class MagneticBead implements PlugIn {
 		
 		double[] xyCordSubPixel = XYPositioning.getBeadCenter(image, ip);
 		
-		//Optional May Remove
 		Gui.addPointToOverlay(image, xyCordSubPixel, slice);
 		
 		double zCord = ZPositioning.calculateZCord(xyCordSubPixel, ip); 
 				
 		//slice is 1-indexed so -1 to convert to 0 indexed 
 		z_cords[slice-1] = zCord;
+		x_cords[slice-1] = xyCordSubPixel[0];
+		y_cords[slice-1] = xyCordSubPixel[1];
 }
 
 	// Returns an unsorted list of Comparable Images that were found in directory
-    public static ArrayList<ComparableImagePlus> getReferenceImages(String directory_path) {
+	// This list will also need to be filtered to remove the
+    public static ArrayList<ComparableImagePlus> getReferenceImages(String directory_path, boolean isZLUT) {
 		
 		AVI_Reader aviRead = new AVI_Reader();
 		
@@ -112,44 +123,52 @@ public class MagneticBead implements PlugIn {
 		File[] directory = parent_directory.listFiles();
 		
         ArrayList<ComparableImagePlus> images = new ArrayList<>();
+        
         for (File file: directory) {
         	
         	if(file.isDirectory()) {
-        		images.addAll(getReferenceImages(file.getAbsolutePath()));
+        		images.addAll(getReferenceImages(file.getAbsolutePath(), isZLUT));
         	}
         	
         	//Add support for more files
-            if(file.getName().endsWith(".avi")){
-            
-            	ImageStack imgstk = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false);
-            	            	
-            	// for each frame in video stack
-            	for(int i = 1; i<=imgstk.size(); i++) {
-            		ImageProcessor img = imgstk.getProcessor(i);
-            		
-            		int height = 0;
-            		long time = 0;
-            		
-            		try {	
-            			height = Integer.parseInt(parent_directory.getName());
-                    	time = getTimeFromString(file.getName());
-                    	
+        	if(!file.getName().endsWith(".avi")){continue;}
+    	
+       
+        
+        	ImageStack imgstk = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false);
+        	            	
+        	// for each frame in video stack
+        	for(int i = 1; i<=imgstk.size(); i++) {
+        		ImageProcessor img = imgstk.getProcessor(i);
+        		
+        		double height = Double.NaN;
+        		long time = Long.MIN_VALUE;
+        		if(isZLUT) {
+        			try {
+            			height = Double.parseDouble(parent_directory.getName());
             		} catch (NumberFormatException e) {
-            			height = 0;
-            			//FIX LATER
-            		} catch(IllegalArgumentException e) {
-            			// time couldnt be parsed. Skip iteration
+            			// Cannot have an image without a height in the zlut
             			continue;
             		}
-                	
-                	String title = "Image at height: " + height + " and time: " + time;
-                	
-                	images.add(new ComparableImagePlus(title, img, height, time, i));
+        		} else {
+        			try {	
+                    	time = getTimeFromString(file.getName());
+            		} catch(IllegalFormatException e) {
+            			// Cannot have an image without a time in an image that will get processed
+            			continue;
+            		}
+        		}
+        		
+    		   	String title = "Image at height: " + height + " and time: " + time;
+            	images.add(new ComparableImagePlus(title, img, height, time, i));
+        		
+            	
          
-            	}
+     
+        	}
             
    
-            }
+            
                 
         }
         
@@ -172,8 +191,11 @@ public class MagneticBead implements PlugIn {
 		width = image.getWidth();
 		height = image.getHeight();
 		z_cords = new double[image.getImageStackSize()];
-		
+		x_cords = new double[image.getImageStackSize()];
+		y_cords = new double[image.getImageStackSize()];
 	}
+	
+	
 	private static long getTimeFromString(String filename) {
 		Pattern pattern = Pattern.compile("\\d+(?=\\.avi$)");
 		Matcher matcher = pattern.matcher(filename);
