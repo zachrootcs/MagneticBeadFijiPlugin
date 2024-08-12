@@ -6,7 +6,7 @@ import ij.process.FloatProcessor;
 import ij.process.ImageProcessor;
 
 public class XYPositioning {
-	
+	public static final int nPointsQuadFit = 5;
 	public static double[] getBeadCenter(ImagePlus img, ImageProcessor ip) {
 		// X,Y COM Center Coordinates
 		int[] xyCord = getCenterOfMass(img, ip);
@@ -167,18 +167,28 @@ public class XYPositioning {
  			}
  		}
  		
- 		// 7 Point Curve fit
+ 		// 5 Point Curve fit
  		
- 		// makes sure to not go out of bounds
- 		int xleftBound = (xMaxIndex-3 < 0) ? 0 : xMaxIndex-3;
- 		int xRightBound = (xMaxIndex+3 > width-1) ? width-1 : xMaxIndex+3;
- 		int yleftBound = (yMaxIndex-3 < 0) ? 0 : yMaxIndex-3;
- 		int yRightBound = (yMaxIndex+3 > width-1) ? width-1 : yMaxIndex+3;
+ 		// offset left or right 
+ 			int offset = nPointsQuadFit/2;
+ 			
+		//Make sure it stays in bounds
+		if(xMaxIndex - offset < 0 || xMaxIndex + offset > width-1) {
+			return new double[]{Double.NaN, Double.NaN};
+		}
+		if(yMaxIndex - offset < 0 || yMaxIndex + offset > width-1) {
+			return new double[]{Double.NaN, Double.NaN};
+		}
+ 		int xleftBound = xMaxIndex-offset;
+ 		int xRightBound = xMaxIndex+offset;
+ 		int yleftBound = yMaxIndex-offset;
+ 		int yRightBound = yMaxIndex+offset;
  		
- 		double[] xData = new double[7];
- 		double[] xIndexes = new double[7];
- 		double[] yData = new double[7];
- 		double[] yIndexes = new double[7];
+ 		
+ 		double[] xData = new double[5];
+ 		double[] xIndexes = new double[5];
+ 		double[] yData = new double[5];
+ 		double[] yIndexes = new double[5];
  		
  		
  		for(int i = 0; i < xRightBound-xleftBound+1; i++) {

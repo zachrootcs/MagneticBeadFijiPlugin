@@ -61,25 +61,12 @@ public class MagneticBead implements PlugIn {
 		initializeVariables();
 		validateImage();
 		
-		
 		ZPositioning.createZlut(image);
-		
-		
-		
 		processStack(image.getStack());
 		display();
 		
 	}
 	
-	
-
-
-
-
-
-
-
-
 
 
 	// Displays the x vs y position and z position vs frame number on a plot
@@ -219,7 +206,7 @@ public class MagneticBead implements PlugIn {
 	
 	// Retrieves an image using getReferenceImages() sorted by time and converted 
 	private ImagePlus retrieveUserImage() {
-		String user_directory = Gui.getDirectoryFromUser("Select Folder for Image","Select a directory. Each image should be titled with the time it was taking in year-month-day-millisecond format");
+		String user_directory = Gui.getDirectoryFromUser("Select Folder for Image","Select a directory. Each frame or video should be titled with the time it was taken in year-month-day-millisecond format.");
 		
 		ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory,false);
 		

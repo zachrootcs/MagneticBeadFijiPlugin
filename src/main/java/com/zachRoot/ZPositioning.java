@@ -249,7 +249,7 @@ public class ZPositioning {
 				
 				// Parse to int
 				for(int i = 0; i<zlut.length; i++) {
-					zlutHeights[i] = Integer.parseInt(split[i]);
+					zlutHeights[i] = Double.parseDouble(split[i]);
 				}
 			}
 			scanner.close();
