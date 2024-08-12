@@ -2,7 +2,6 @@ package com.zachRoot;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.IllegalFormatException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -33,7 +32,7 @@ public class MagneticBead implements PlugIn {
 	private static double[]  y_cords;
 	
 	//To do implement
-	private String length_unit;
+	//private String length_unit;
 	
 	
 	@Override
@@ -62,15 +61,27 @@ public class MagneticBead implements PlugIn {
 		initializeVariables();
 		validateImage();
 		
-
-		ZPositioning.createZLut(image);
+		
+		ZPositioning.createZlut(image);
+		
+		
+		
 		processStack(image.getStack());
 		display();
 		
 	}
 	
 	
-	
+
+
+
+
+
+
+
+
+
+
 	// Displays the x vs y position and z position vs frame number on a plot
 	private void display() {
 		
@@ -132,17 +143,17 @@ public class MagneticBead implements PlugIn {
         	
         	//Add support for more files
         	if(!file.getName().endsWith(".avi")){continue;}
-    	
-       
-        
+        	
         	ImageStack imgstk = aviRead.makeStack(file.getAbsolutePath(),1,0,false,false,false);
         	            	
         	// for each frame in video stack
         	for(int i = 1; i<=imgstk.size(); i++) {
-        		ImageProcessor img = imgstk.getProcessor(i);
         		
+        		ImageProcessor img = imgstk.getProcessor(i);
         		double height = Double.NaN;
         		long time = Long.MIN_VALUE;
+        		
+        		// ZLut only requires height while other should require time
         		if(isZLUT) {
         			try {
             			height = Double.parseDouble(parent_directory.getName());
@@ -160,17 +171,15 @@ public class MagneticBead implements PlugIn {
         		}
         		
     		   	String title = "Image at height: " + height + " and time: " + time;
-            	images.add(new ComparableImagePlus(title, img, height, time, i));
-        		
-            	
-         
-     
+            	images.add(new ComparableImagePlus(title, img, height, time, i));      	
         	}
-            
-   
-            
-                
         }
+        
+        if(isZLUT) {
+    		images.sort(ComparableImagePlus.Z_COMPARATOR);
+    	} else {
+    		images.sort(ComparableImagePlus.TIME_COMPARATOR);
+    	}
         
         return images;
         
@@ -183,6 +192,7 @@ public class MagneticBead implements PlugIn {
 			IJ.showMessage("Image must be square instead of " + width + "x" + height);
 			return;
 		}
+		//Add Something w bit depth or color if needed
 
 	}
 
@@ -211,8 +221,7 @@ public class MagneticBead implements PlugIn {
 	private ImagePlus retrieveUserImage() {
 		String user_directory = Gui.getDirectoryFromUser("Select Folder for Image","Select a directory. Each image should be titled with the time it was taking in year-month-day-millisecond format");
 		
-		ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory);
-		images.sort(ComparableImagePlus.TIME_COMPARATOR);
+		ArrayList<ComparableImagePlus> images = getReferenceImages(user_directory,false);
 		
 		// No images found
 		if (images.size()==0) return null;
@@ -258,8 +267,7 @@ public class MagneticBead implements PlugIn {
 	private static void testfluctuatingbead() {
 		String beadDirectory = "C:\\Users\\7060 Yoder3\\Desktop\\MagneticBeadProject\\07-16-24 Data\\Bead 1 Fluctuating ZLUT 50-55";
 		
-		ArrayList<ComparableImagePlus> imgs = getReferenceImages(beadDirectory);
-		Collections.sort(imgs, ComparableImagePlus.TIME_COMPARATOR);
+		ArrayList<ComparableImagePlus> imgs = getReferenceImages(beadDirectory, false);
 		
 		ImageStack stack = new ImageStack();
 		for(ImagePlus img: imgs) {
@@ -302,16 +310,14 @@ public class MagneticBead implements PlugIn {
 		
 		//Convert individual images into stack
 		ImageStack stack1 = new ImageStack();
-		ArrayList<ComparableImagePlus> imgs1 = getReferenceImages(bead1Zlut1Directory);
-		Collections.sort(imgs1, ComparableImagePlus.TIME_COMPARATOR);
+		ArrayList<ComparableImagePlus> imgs1 = getReferenceImages(bead1Zlut1Directory, false);
 		
 		for(ImagePlus img: imgs1) {
 			stack1.addSlice(img.getProcessor());
 		}
 		
 		ImageStack stack2 = new ImageStack();
-		ArrayList<ComparableImagePlus> imgs2 = getReferenceImages(bead1Zlut2Directory);
-		Collections.sort(imgs2, ComparableImagePlus.TIME_COMPARATOR);
+		ArrayList<ComparableImagePlus> imgs2 = getReferenceImages(bead1Zlut2Directory, false);
 		
 		for(ImagePlus img: imgs2) {
 			stack2.addSlice(img.getProcessor());

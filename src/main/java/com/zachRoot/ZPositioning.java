@@ -3,10 +3,7 @@ package com.zachRoot;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import ij.IJ;
 import ij.ImagePlus;
@@ -17,7 +14,7 @@ import ij.process.ImageProcessor;
 public class ZPositioning {
 	
 	// Radius of the z radial profiles
-	private static int radius;
+	public static int radius;
 	
 	// Stores the zlut: a lookup table of radial profiles
 	static float[][] zlut;
@@ -34,25 +31,36 @@ public class ZPositioning {
 			+ "/nor where a previous ZLUT has already been created";
 	
 	
-	public static void createZLut(ImagePlus img) {
+	public static void createZlut(ImagePlus img) {
 		
-		//make sure its even
-		radius = img.getWidth()/3 - img.getWidth()%2;
+		
+		radius = img.getWidth()/3;
 		
 		// Directory for ZLUT Reference Images
 		String directory_path = Gui.getDirectoryFromUser(UI_ZLUT_DIR_TITLE, UI_ZLUT_DIR_MESSAGE);		
 		
-		// Checks to see if the zlut was previously saved in the folder then loads it into the zlut variable
+		// Checks to see if the zlut was previously saved in the folder then loads it into the zlut variable 
 		if(isZlutInFolder(directory_path)) {
 			return;
 		}
 		
 		// ZLut Component Images
-		ArrayList<ComparableImagePlus> images = MagneticBead.getReferenceImages(directory_path);
-		Collections.sort(images, ComparableImagePlus.Z_COMPARATOR);
+		ArrayList<ComparableImagePlus> images = MagneticBead.getReferenceImages(directory_path, true);
+		
+		if(images.size() == 0) {
+			IJ.showMessage("No images found. Please select a new folder.");
+			createZlut(img);
+			return;
+		}
+		
+		if(images.get(0).getWidth() != img.getWidth()) {
+			IJ.showMessage("Images found were of a different size than the current image. Please select a new folder.");
+			createZlut(img);
+			return;
+		}
 		
 		// Matrix with each index being the radial profile of image about center of bead
-		zlut        = new float [images.size()][radius+1];
+		zlut        = new float [images.size()][images.get(0).getWidth()];
 		zlutHeights = new double[images.size()];
 		
 		// Loop through each image
@@ -66,12 +74,22 @@ public class ZPositioning {
 			zlutHeights[i] = images.get(i).getZPos();
 			
 		}
+		
 		if(checkDuplicates(zlutHeights)) {
 			IJ.showMessage("Warning: There exists duplicate radial profiles in this ZLUT. This can cause Z positioning to be inaccurate");
 		}
+		
+		
 		Gui.promptUserToSaveZLut(directory_path); 
 	}
 	
+
+	private static boolean isZlutValid() {
+		if(zlut[0].length != radius) {
+			return false;
+		}
+		return true;
+	}
 	
 	private static boolean checkDuplicates(double[] zlutHeights2) {
 		for(int i = 0; i<zlutHeights2.length-1; i++) {
@@ -87,10 +105,10 @@ public class ZPositioning {
 		
 		int width = ip.getWidth();
 		// Array where index is distance from center and value is the number of times that distance was found
-		int[] numRho = new int[radius+1];
+		int[] numRho = new int[radius];
 		
 		// Array where index is distance from center and value is the sum of the pixels of that distance
-		float[] intensitySum = new float[radius+1];
+		float[] intensitySum = new float[radius];
 		
 		float[] pixels = (float[])ip.convertToFloatProcessor().getPixels(); 
 		
@@ -99,7 +117,7 @@ public class ZPositioning {
 				int rhoValue = (int)(Math.round(Math.sqrt((xyCord[0]-x)*(xyCord[0]-x) + (xyCord[1]-y)*(xyCord[1]-y))));
 				
 				// Set bounds
-				if(rhoValue > radius) rhoValue = radius;
+				if(rhoValue > radius-1) rhoValue = radius-1;
 				// Sets to 1 because some profiles will have a 0 rhovalue while others do not. 
 				//This causes problems when finding a close zlut
 				if(rhoValue < 1)      rhoValue = 1;
@@ -112,8 +130,8 @@ public class ZPositioning {
 		}
 		
 		//Divide intensitysum by numrho to get the average radial profile
-		float[] radialProfile = new float[radius+1];
-		for(int i = 0; i < radius+1; i++) {
+		float[] radialProfile = new float[radius];
+		for(int i = 0; i < radius; i++) {
 			radialProfile[i] = intensitySum[i]/numRho[i];
 			if (Double.isNaN(radialProfile[i])) radialProfile[i] = 0;
 		}
@@ -206,6 +224,10 @@ public class ZPositioning {
 		
 		loadZlut(new File(directory_path, "ZLUT.tif"));
 		loadZLUTHeights(new File(directory_path, "zlutHeights.csv"));
+		
+		if(!isZlutValid()) {
+			return false;
+		}
 		
 		return true;
 	}
